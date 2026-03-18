@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق مشوارك - اطلب الآن</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --main-color: #5d3fd3; --bg-color: #f4f7f6; --success: #22c55e; --waiting: #f59e0b; --danger: #ef4444; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; padding: 15px; direction: rtl; margin: 0; }
+        .container { background: white; width: 100%; max-width: 450px; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 8px solid var(--main-color); margin-top: 10px; }
+        
+        /* شاشة الدخول */
+        .login-box { text-align: center; }
+        input, select, textarea { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; margin: 10px 0; outline: none; background: #fafafa; font-family: inherit; }
+        .btn-submit { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; background: var(--main-color); color: white; transition: 0.3s; }
+
+        .user-info-bar { background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 15px; font-size: 13px; display: flex; justify-content: space-between; border: 1px solid #ddd; align-items: center; }
+        .header-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border: 2px solid #eee; border-radius: 10px; background: white; cursor: pointer; font-weight: bold; color: #666; font-size: 14px; }
+        .tab-btn.active { border-color: var(--main-color); color: var(--main-color); background: #f3f0ff; }
+
+        .history-item { border: 1px solid #eee; padding: 12px; border-radius: 12px; margin-bottom: 10px; background: #fff; position: relative; border-right: 4px solid #ddd; }
+        .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 5px; font-weight: bold; float: left; background: #fef3c7; color: #d97706; }
+        #priceDisplay { font-size: 18px; color: var(--success); font-weight: bold; text-align: center; margin: 10px 0; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loginSection" class="login-box">
+        <i class="fas fa-motorcycle" style="font-size: 40px; color: var(--main-color); margin-bottom: 10px;"></i>
+        <h2 style="color:var(--main-color)">تطبيق مشوارك</h2>
+        <p>سجل بياناتك لطلب التكتك أو الدليفري</p>
+        <input type="tel" id="entryPhone" placeholder="رقم موبايلك (11 رقم)" maxlength="11">
+        <select id="entryArea">
+            <option value="" disabled selected>أنت منين؟ (اختر منطقتك)</option>
+            <option value="الغراقة">الغراقة</option>
+            <option value="ميت العامل">ميت العامل</option>
+        </select>
+        <button class="btn-submit" onclick="saveCustomerLogin()">ابدأ الآن 🚀</button>
+    </div>
+
+    <div id="appSection" style="display: none;">
+        <div class="user-info-bar">
+            <span><b><i class="fas fa-map-marker-alt"></i> <span id="displayArea"></span></b></span>
+            <span><i class="fas fa-phone"></i> <span id="displayPhone"></span></span>
+            <button onclick="logout()" style="color:red; border:none; background:none; cursor:pointer; font-size:11px;">تغيير</button>
+        </div>
+
+        <div class="header-tabs">
+            <button class="tab-btn active" id="btn-mishwar" onclick="showTab('mishwar')">🛺 مشوار</button>
+            <button class="tab-btn" id="btn-talab" onclick="showTab('talab')">📦 دليفري</button>
+            <button class="tab-btn" id="btn-history" onclick="showTab('history')">📋 طلباتي</button>
+        </div>
+
+        <div id="tab-mishwar">
+            <label style="font-size:13px; color:#555">منين (مكانك الحالي)؟</label>
+            <input type="text" id="startLocation" placeholder="مثلاً: عند المسجد الكبير">
+            
+            <label style="font-size:13px; color:#555">رايح فين؟ (الوجهة)</label>
+            <select id="destinationSelect" onchange="updatePriceDisplay()"></select>
+            
+            <div id="priceDisplay">السعر: <span id="totalPrice">0</span> ج</div>
+            
+            <button class="btn-submit" onclick="sendMishwarOrder()">تأكيد المشوار ✅</button>
+        </div>
+
+        <div id="tab-talab" style="display:none">
+            <input type="text" id="deliveryAddress" placeholder="عنوان التوصيل بالتفصيل">
+            <textarea id="deliveryItems" rows="4" placeholder="اكتب طلباتك هنا (مثلاً: كيس سكر، عيش، إلخ..)"></textarea>
+            <p style="text-align:center; color:var(--success); font-weight:bold;">تكلفة التوصيل: 20 جنيه ثابت ✅</p>
+            <button class="btn-submit" onclick="sendDeliveryOrder()">إرسال طلب الدليفري 📦</button>
+        </div>
+
+        <div id="tab-history" style="display:none">
+            <div id="historyList">جاري تحميل طلباتك...</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+  apiKey: "AIzaSyCf8_Ks8OC1J8wI5dRKS55GE_KCAO7H-8c",
+  authDomain: "toktok-f5b4a.firebaseapp.com",
+  databaseURL: "https://toktok-f5b4a-default-rtdb.firebaseio.com",
+  projectId: "toktok-f5b4a",
+  storageBucket: "toktok-f5b4a.firebasestorage.app",
+  messagingSenderId: "970149361447",
+  appId: "1:970149361447:web:1922b3d2b797cd26665b02",
+  measurementId: "G-VWFC6KEH2P"
+};
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let userPhone = "";
+    let userArea = "";
+
+    window.onload = function() {
+        const p = localStorage.getItem('custPhone');
+        const a = localStorage.getItem('custArea');
+        if(p && a) { userPhone = p; userArea = a; startApp(); }
+    }
+
+    function saveCustomerLogin() {
+        const p = document.getElementById('entryPhone').value;
+        const a = document.getElementById('entryArea').value;
+        if(p.length < 11 || !a) return alert("أكمل بياناتك بالكامل");
+        localStorage.setItem('custPhone', p);
+        localStorage.setItem('custArea', a);
+        userPhone = p; userArea = a;
+        startApp();
+    }
+
+    function startApp() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('appSection').style.display = 'block';
+        document.getElementById('displayPhone').innerText = userPhone;
+        document.getElementById('displayArea').innerText = userArea;
+        loadDestinations();
+        loadHistory();
+    }
+
+    // جلب الوجهات الخاصة بمنطقة الزبون فقط
+    function loadDestinations() {
+        db.ref('pricing/' + userArea + '/destinations').on('value', snap => {
+            const select = document.getElementById('destinationSelect');
+            let html = '<option value="" disabled selected>اختر الوجهة...</option>';
+            snap.forEach(child => {
+                const d = child.val();
+                html += `<option value="${d.price}">${d.name}</option>`;
+            });
+            select.innerHTML = html;
+        });
+    }
+
+    function updatePriceDisplay() {
+        const p = document.getElementById('destinationSelect').value;
+        document.getElementById('priceDisplay').style.display = 'block';
+        document.getElementById('totalPrice').innerText = p;
+    }
+
+    function sendMishwarOrder() {
+        const from = document.getElementById('startLocation').value;
+        const select = document.getElementById('destinationSelect');
+        const to = select.options[select.selectedIndex].text;
+        const price = select.value;
+
+        if(!from || !price) return alert("حدد مكانك ووجهتك");
+
+        db.ref('orders').push({
+            serviceType: "مشوار", customerPhone: userPhone, customerArea: userArea,
+            from: from, to: to, price: price, status: "waiting", timestamp: Date.now()
+        }).then(() => { alert("تم طلب المشوار!"); showTab('history'); });
+    }
+
+    function sendDeliveryOrder() {
+        const addr = document.getElementById('deliveryAddress').value;
+        const items = document.getElementById('deliveryItems').value;
+        if(!addr || !items) return alert("اكمل بيانات التوصيل");
+
+        db.ref('orders').push({
+            serviceType: "طلب دليفري", customerPhone: userPhone, customerArea: userArea,
+            from: "المحلات", to: addr, packageDescription: items, price: "20",
+            status: "waiting", timestamp: Date.now()
+        }).then(() => { alert("تم إرسال طلب الدليفري!"); showTab('history'); });
+    }
+
+    function showTab(name) {
+        document.getElementById('tab-mishwar').style.display = (name === 'mishwar') ? 'block' : 'none';
+        document.getElementById('tab-talab').style.display = (name === 'talab') ? 'block' : 'none';
+        document.getElementById('tab-history').style.display = (name === 'history') ? 'block' : 'none';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-' + name).classList.add('active');
+    }
+
+    function loadHistory() {
+        db.ref('orders').orderByChild('customerPhone').equalTo(userPhone).on('value', snap => {
+            const list = document.getElementById('historyList');
+            let html = '';
+            let items = [];
+            snap.forEach(c => { items.unshift(c.val()); });
+            items.forEach(o => {
+                let statusTxt = o.status === 'waiting' ? 'انتظار..' : 'في الطريق';
+                html += `<div class="history-item"><span class="status-badge">${statusTxt}</span><b>${o.serviceType}</b><br><small>${o.to}</small><br><b>${o.price} ج</b></div>`;
+            });
+            list.innerHTML = html || 'لا توجد طلبات سابقة';
+        });
+    }
+
+    function logout() { localStorage.clear(); location.reload(); }
+</script>
+<script>    // 1. عرض الطلبات مع زرار الإلغاء
+    function loadHistory() {
+        db.ref('orders').orderByChild('customerPhone').equalTo(userPhone).on('value', snap => {
+            const list = document.getElementById('historyList');
+            let html = '';
+            let items = [];
+            
+            // ترتيب من الأحدث للأقدم
+            snap.forEach(c => { 
+                items.unshift({ id: c.key, ...c.val() }); 
+            });
+
+            items.forEach(o => {
+                let statusTxt = o.status === 'waiting' ? 'في الانتظار' : (o.status === 'active' ? 'الكابتن في الطريق' : 'وصلت');
+                let statusClass = o.status === 'waiting' ? 'status-waiting' : (o.status === 'active' ? 'status-active' : 'status-completed');
+                
+                html += `
+                    <div class="history-item">
+                        <span class="status-badge ${statusClass}">${statusTxt}</span>
+                        <b>${o.serviceType}</b><br>
+                        <small>إلى: ${o.to || o.packageDescription}</small><br>
+                        <b style="color:var(--main-color)">${o.price} ج</b>
+                        
+                        ${o.status === 'waiting' ? `
+                            <div style="text-align: left; margin-top: 10px;">
+                                <button onclick="cancelOrder('${o.id}')" 
+                                    style="background:none; border:1px solid red; color:red; padding:5px 10px; border-radius:8px; cursor:pointer; font-size:12px;">
+                                    <i class="fas fa-times"></i> إلغاء الطلب
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            list.innerHTML = html || '<p style="text-align:center; color:#999;">لا توجد طلبات سابقة</p>';
+        });
+    }
+
+    // 2. وظيفة الإلغاء الفعلية
+    function cancelOrder(orderId) {
+        if(confirm("هل أنت متأكد من إلغاء هذا الطلب؟")) {
+            db.ref('orders/' + orderId).remove()
+            .then(() => {
+                alert("تم إلغاء الطلب بنجاح ✅");
+            })
+            .catch((error) => {
+                alert("عذراً، حدث خطأ أثناء الإلغاء");
+            });
+        }
+    }
+</script>
+<script>    // 1. عرض سجل الطلبات مع بيانات السائق وزر الاتصال
+    function loadHistory() {
+        db.ref('orders').orderByChild('customerPhone').equalTo(userPhone).on('value', snap => {
+            const list = document.getElementById('historyList');
+            let html = '';
+            let items = [];
+            
+            snap.forEach(c => { 
+                items.unshift({ id: c.key, ...c.val() }); 
+            });
+
+            items.forEach(o => {
+                let statusTxt = o.status === 'waiting' ? 'في الانتظار..' : (o.status === 'active' ? 'الكابتن في الطريق 🚀' : 'وصلت بالسلامة');
+                let statusClass = o.status === 'waiting' ? 'status-waiting' : (o.status === 'active' ? 'status-active' : 'status-completed');
+                
+                html += `
+                    <div class="history-item" style="border-right: 5px solid ${o.status === 'active' ? '#22c55e' : '#ddd'}">
+                        <span class="status-badge ${statusClass}">${statusTxt}</span>
+                        <b>${o.serviceType}</b><br>
+                        <small>إلى: ${o.to || o.packageDescription}</small><br>
+                        
+                        ${o.status === 'active' ? `
+                            <div style="background: #f0fdf4; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #22c55e;">
+                                <p style="font-size: 13px; margin-bottom: 8px;"><b>الكابتن:</b> ${o.driverName || 'جاري التوصيل'}</p>
+                                <a href="tel:${o.driverPhone}" 
+                                   style="display: block; text-align: center; background: #22c55e; color: white; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                                   <i class="fas fa-phone"></i> اتصل بالكابتن
+                                </a>
+                            </div>
+                        ` : ''}
+
+                        ${o.status === 'waiting' ? `
+                            <button onclick="cancelOrder('${o.id}')" style="color:red; background:none; border:none; cursor:pointer; font-size:11px; margin-top:10px;">إلغاء الطلب ❌</button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            list.innerHTML = html || 'لا يوجد طلبات سابقة';
+        });
+    }
+
+    // 2. مراقبة تغيير الحالة لإظهار تنبيه فوري للزبون
+    function observeStatus() {
+        db.ref('orders').on('child_changed', snap => {
+            const order = snap.val();
+            if (order.customerPhone === userPhone && order.status === 'active') {
+                alert("تم قبول طلبك! الكابتن " + (order.driverName || "") + " في الطريق إليك.");
+            }
+        });
+    }
+</script>
+<script>// كود تسجيل الـ Service Worker وطلب إذن الإشعارات في صفحة الزبون
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('firebase-messaging-sw.js')
+    .then((registration) => {
+      console.log('تم تسجيل الـ Service Worker بنجاح:', registration.scope);
+      
+      // طلب الإذن من المستخدم
+      return Notification.requestPermission();
+    })
+    .then((permission) => {
+      if (permission === 'granted') {
+        console.log('تم الموافقة على استقبال الإشعارات!');
+        
+        // الحصول على الـ Token الخاص بالجهاز عشان نبعت له إشعارات لاحقاً
+        return messaging.getToken({
+          vapidKey: 'BIPC68fTw6rcJiZ1rajcNkXQzcCb7hTX25gJ9Kb_YuXaT43UUwmHtTaa_7_5qlnKbHiwgGbKoH-aefNppRn6R9w' // هحتاج أجيب لك المفتاح ده من إعدادات Firebase
+        });
+      } else {
+        console.warn('المستخدم رفض إذن الإشعارات.');
+      }
+    })
+    .then((token) => {
+      if (token) {
+        console.log('التوكن الخاص بالزبون:', token);
+        // هنا هنخزن التوكن في قاعدة البيانات مع بيانات الزبون
+      }
+    })
+    .catch((err) => {
+      console.error('حدث خطأ أثناء إعداد الإشعارات:', err);
+    });
+}
+</script>
+</body>
+</html>
+. 
